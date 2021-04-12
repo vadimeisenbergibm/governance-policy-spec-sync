@@ -141,7 +141,13 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 	   reqLogger.Error(err, "Failed to get managed cluster...")
 	   return reconcile.Result{}, err
 	}
-	reqLogger.Info(fmt.Sprintf("the managed cluster CR of the policy is %s", managedCluster))
+	// TODO create a constant for hub.open-cluster-management.io
+	if managedCluster.Labels["hub.open-cluster-management.io"] == "true" {
+	   reqLogger.Info("the managed cluster of the policy is a hub")
+	   rootPolicyName := instance.Labels[common.RootPolicyLabel]
+	   reqLogger.Info(fmt.Sprintf("the root policy name is %s", rootPolicyName))
+	   return reconcile.Result{}, nil
+	}
 
 	managedPlc := &policiesv1.Policy{}
 	err = r.managedClient.Get(context.TODO(), request.NamespacedName, managedPlc)
