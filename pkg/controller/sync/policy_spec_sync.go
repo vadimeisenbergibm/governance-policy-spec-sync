@@ -6,6 +6,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
@@ -144,8 +145,13 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 	// TODO create a constant for hub.open-cluster-management.io
 	if managedCluster.Labels["hub.open-cluster-management.io"] == "true" {
 	   reqLogger.Info("the managed cluster of the policy is a hub")
-	   rootPolicyName := instance.Labels[common.RootPolicyLabel]
-	   reqLogger.Info(fmt.Sprintf("the root policy name is %s", rootPolicyName))
+	   rootPlc := instance.Labels[common.RootPolicyLabel]
+	   reqLogger.Info(fmt.Sprintf("the root policy is %s", rootPlc))
+
+	   rootPlcName := strings.Split(rootPlc, ".")[1]
+	   rootPlcNamespace := strings.Split(rootPlc, ".")[0]
+	   reqLogger.Info(fmt.Sprintf("the root policy name is %s in namespace %s", rootPlcName, rootPlcNamespace))
+
 	   return reconcile.Result{}, nil
 	}
 
