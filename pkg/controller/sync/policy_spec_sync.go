@@ -134,6 +134,9 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
+	plcToReplicate := instance
+	namespacedNameOfPlcToReplicate := request.NamespacedName
+
 	clusterName := instance.Labels[common.ClusterNameLabel]
 	reqLogger.Info(fmt.Sprintf("the cluster of the policy is %s", clusterName))
 	managedCluster := &clusterv1.ManagedCluster{}
@@ -145,52 +148,55 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 	// TODO create a constant for hub.open-cluster-management.io
 	if managedCluster.Labels["hub.open-cluster-management.io"] == "true" {
 	   reqLogger.Info("the managed cluster of the policy is a hub")
-	   rootPlc := instance.Labels[common.RootPolicyLabel]
-	   reqLogger.Info(fmt.Sprintf("the root policy is %s", rootPlc))
+	   rootPlcDotNotationName := instance.Labels[common.RootPolicyLabel]
+	   reqLogger.Info(fmt.Sprintf("the root policy is %s", rootPlcDotNotationName))
 
-	   rootPlcName := strings.Split(rootPlc, ".")[1]
-	   rootPlcNamespace := strings.Split(rootPlc, ".")[0]
+	   rootPlcName := strings.Split(rootPlcDotNotationName, ".")[1]
+	   rootPlcNamespace := strings.Split(rootPlcDotNotationName, ".")[0]
 	   reqLogger.Info(fmt.Sprintf("the root policy name is %s in namespace %s", rootPlcName, rootPlcNamespace))
 
-	   return reconcile.Result{}, nil
+	   namespacedNameOfPlcToReplicate = types.NamespacedName{ Namespace: rootPlcNamespace, Name: rootPlcName}
 	}
 
 	managedPlc := &policiesv1.Policy{}
-	err = r.managedClient.Get(context.TODO(), request.NamespacedName, managedPlc)
+	err = r.managedClient.Get(context.TODO(), namespacedNameOfPlcToReplicate, managedPlc)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// not found on managed cluster, create it
 			reqLogger.Info("Policy not found on managed cluster, creating it...")
-			managedPlc = instance.DeepCopy()
+			managedPlc = plcToReplicate.DeepCopy()
 			managedPlc.SetOwnerReferences(nil)
 			managedPlc.SetResourceVersion("")
+			managedPlc.SetName(namespacedNameOfPlcToReplicate.Name)
+			managedPlc.SetNamespace(namespacedNameOfPlcToReplicate.Namespace)
+
 			err = r.managedClient.Create(context.TODO(), managedPlc)
 			if err != nil {
 				reqLogger.Error(err, "Failed to create policy on managed...")
 				return reconcile.Result{}, err
 			}
 			r.managedRecorder.Event(instance, "Normal", "PolicySpecSync",
-				fmt.Sprintf("Policy %s was synchronized to cluster namespace %s", instance.GetName(),
-					instance.GetNamespace()))
+				fmt.Sprintf("Policy %s was synchronized to cluster namespace %s", plcToReplicate.GetName(),
+					plcToReplicate.GetNamespace()))
 		} else {
 			reqLogger.Error(err, "Failed to get policy from managed...")
 			return reconcile.Result{}, err
 		}
 	}
 	// found, then compare and update
-	if !common.CompareSpecAndAnnotation(instance, managedPlc) {
+	if !common.CompareSpecAndAnnotation(plcToReplicate, managedPlc) {
 		// update needed
 		reqLogger.Info("Policy mismatch between hub and managed, updating it...")
-		managedPlc.SetAnnotations(instance.GetAnnotations())
-		managedPlc.Spec = instance.Spec
+		managedPlc.SetAnnotations(plcToReplicate.GetAnnotations())
+		managedPlc.Spec = plcToReplicate.Spec
 		err = r.managedClient.Update(context.TODO(), managedPlc)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Error(err, "Failed to update policy on managed...")
 			return reconcile.Result{}, err
 		}
 		r.managedRecorder.Event(instance, "Normal", "PolicySpecSync",
-			fmt.Sprintf("Policy %s was updated in cluster namespace %s", instance.GetName(),
-				instance.GetNamespace()))
+			fmt.Sprintf("Policy %s was updated in cluster namespace %s", plcToReplicate.GetName(),
+				plcToReplicate.GetNamespace()))
 	}
 	reqLogger.Info("Reconciliation complete.")
 	return reconcile.Result{}, nil
