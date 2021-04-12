@@ -6,6 +6,7 @@ package apis
 import (
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
+	appsv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -24,6 +25,10 @@ func AddToScheme(s *runtime.Scheme) error {
 	if err := policySchemeBuilder.AddToScheme(s); err != nil {
 		return err
 	}
+
+	if err := appsv1.SchemeBuilder.AddToScheme(s); err != nil {
+		return err
+	}
 	return AddToSchemes.AddToScheme(s)
 }
 
@@ -32,6 +37,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(policiesv1.SchemeGroupVersion,
 		&policiesv1.Policy{},
 		&policiesv1.PolicyList{},
+		&policiesv1.PlacementBinding{},
+		&policiesv1.PlacementBindingList{},
 	)
 	metav1.AddToGroupVersion(scheme, policiesv1.SchemeGroupVersion)
 	return nil
