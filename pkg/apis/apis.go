@@ -4,6 +4,7 @@
 package apis
 
 import (
+	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,6 +15,10 @@ var AddToSchemes runtime.SchemeBuilder
 
 // AddToScheme adds all Resources to the Scheme
 func AddToScheme(s *runtime.Scheme) error {
+	// add cluster scheme
+	if err := clusterv1.AddToScheme(s); err != nil {
+		return err
+	}
 	// add policy scheme
 	policySchemeBuilder := runtime.NewSchemeBuilder(addKnownTypes)
 	if err := policySchemeBuilder.AddToScheme(s); err != nil {

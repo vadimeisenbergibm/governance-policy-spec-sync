@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	"github.com/open-cluster-management/governance-policy-propagator/pkg/controller/common"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -130,6 +132,17 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 		reqLogger.Error(err, "Failed to get policy from hub...")
 		return reconcile.Result{}, err
 	}
+
+	clusterName := instance.Labels[common.ClusterNameLabel]
+	reqLogger.Info(fmt.Sprintf("the cluster of the policy is %s", clusterName))
+	managedCluster := &clusterv1.ManagedCluster{}
+	err = r.hubClient.Get(context.TODO(), types.NamespacedName{ Name: clusterName}, managedCluster)
+	if err != nil {
+	   reqLogger.Error(err, "Failed to get managed cluster...")
+	   return reconcile.Result{}, err
+	}
+	reqLogger.Info(fmt.Sprintf("the managed cluster CR of the policy is %s", managedCluster))
+
 	managedPlc := &policiesv1.Policy{}
 	err = r.managedClient.Get(context.TODO(), request.NamespacedName, managedPlc)
 	if err != nil {
