@@ -147,7 +147,7 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, err
 	}
 
-	replicateLabels := true
+	hubPolicyLabel := ""
 
 	// TODO create a constant for hub.open-cluster-management.io
 	if managedCluster.Labels["hub.open-cluster-management.io"] == "true" {
@@ -159,10 +159,10 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 		rootPlcNamespace := strings.Split(rootPlcDotNotationName, ".")[0]
 		reqLogger.Info(fmt.Sprintf("the root policy name is %s in namespace %s", rootPlcName, rootPlcNamespace))
 
-		namespacedNameOfPlcToReplicate = types.NamespacedName{Namespace: rootPlcNamespace, Name: rootPlcName}
+		namespacedNameOfPlcToReplicate = types.NamespacedName{Namespace: instance.Namespace, Name: rootPlcName}
 
-		r.replicatePlacementRulesAndBindings(instance, rootPlcNamespace, rootPlcName)
-		replicateLabels = false
+		r.replicatePlacementRulesAndBindings(instance, instance.Namespace, rootPlcName)
+		hubPolicyLabel = rootPlcDotNotationName
 	}
 
 	managedPlc := &policiesv1.Policy{}
@@ -177,8 +177,9 @@ func (r *ReconcilePolicy) Reconcile(request reconcile.Request) (reconcile.Result
 			managedPlc.SetName(namespacedNameOfPlcToReplicate.Name)
 			managedPlc.SetNamespace(namespacedNameOfPlcToReplicate.Namespace)
 
-			if !replicateLabels {
-			   managedPlc.SetLabels(nil)
+			//TODO add constant for "hub-policy-name.open-cluster-management.io"
+			if hubPolicyLabel != "" {
+				managedPlc.SetLabels(map[string]string{"hub-policy-name.open-cluster-management.io": hubPolicyLabel})
 			}
 
 			err = r.managedClient.Create(context.TODO(), managedPlc)
